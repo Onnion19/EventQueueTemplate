@@ -3,6 +3,11 @@
 #include <iostream>
 #include "EventQueue/EventQueue.h"
 
+/** 
+ *	 Events spcae, here are defined all I/O events. Should be refactored to their own specific file as well as improve the systems.  
+ * 
+ *	The current implementation is just for example purposes. 
+ */
 namespace Events{
 
 	namespace Mouse{
@@ -29,9 +34,12 @@ namespace Events{
 
 
 
-
+	//Set all types of events as a variant. 
 	using InputEvent = std::variant<Mouse::OnClick, Keyboard::OnDown>; 
 
+	/** 
+	 *	This struct works with std::visit to check the variant content. It will trigger the matching function according to the content of the varirant. 
+	 */
 	struct visitor {
 
 		void operator()(Mouse::OnClick  clickPoint){
@@ -46,18 +54,30 @@ namespace Events{
 }
 
 
-
+/** 
+ * Given a Queue<EventQ> adds a new event of type <Event>.
+ * EventQ = Queue type 
+ * Event = Event type 
+ * 
+ * Args = params for the constructor of the given event . 
+ */
 template<class EventQ, class Event, class ... Args>
 void SendEvent(EventQueue<EventQ> & queue ,Args&& ...args) {
 	queue.ReceiveEvent<Event>(std::forward<Args>(args)...); 
 }
 
+
+/** 
+ * Given a Queue<EventQ> asks for the first event in the queue. 
+ *  
+ */
 template<class EventQ>
 void ReceiveEvent(EventQueue<EventQ>& queue) {
 
 	auto incomingEvent = queue.DispatchEvent(); 
 	if(incomingEvent)
 	{
+		//this could be implemented as lambda functions to provided other kind of handlers.
 		std::visit(Events::visitor(), *incomingEvent); 
 	}
 	else 
@@ -66,18 +86,33 @@ void ReceiveEvent(EventQueue<EventQ>& queue) {
 	}
 }
 
+//Just a dumb class for example purposes
+class InvalidClass {};
+
+//User programming scenario showcase:
 int main()
 {
+	//Create a event queue of the type you want. 
+	/*
+	 * Shared pointer is used to be safe on a multithreading envirronment 
+	 */
+	std::shared_ptr<EventQueue<Events::InputEvent>> myEventQueue = std::make_shared< EventQueue<Events::InputEvent>>();
 
-	EventQueue<Events::InputEvent> myEventQueue; 
-	//send events
-	SendEvent<Events::InputEvent, Events::Mouse::OnClick>(myEventQueue, 10, 15); 
-	SendEvent<Events::InputEvent, Events::Keyboard::OnDown>(myEventQueue,10);
+	//Thread1: Populates the event queue
+	{
+		//send events that matches with the queue types. In our case all I/O events are valid. 
+		SendEvent<Events::InputEvent, Events::Mouse::OnClick>(*myEventQueue, 10, 15); 
+		SendEvent<Events::InputEvent, Events::Keyboard::OnDown>(*myEventQueue,10);
+		//SendEvent<Events::InputEvent, InvalidClass>(myEventQueue); //Causes COMPILE error because InvalidClass is not inside the InputEvent variant type
+	}
 
-	//Receive events
-	ReceiveEvent< Events::InputEvent>(myEventQueue); 
-	ReceiveEvent< Events::InputEvent>(myEventQueue); 
-	ReceiveEvent< Events::InputEvent>(myEventQueue); 
+	//Thread2: Reads the queue
+	{
+		ReceiveEvent< Events::InputEvent>(*myEventQueue);
+		ReceiveEvent< Events::InputEvent>(*myEventQueue);
+		ReceiveEvent< Events::InputEvent>(*myEventQueue); //Can safely try to receive more events than the current one in the queue.
+	}
+
 
 	return 0; 
 }

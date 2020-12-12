@@ -8,17 +8,30 @@
 #include <utility>
 
 
+/**
+ *  Very basic implementation of a generic multithreading event queue 
+ * 
+ * T = QueueType
+ */
 template<class T>
 class EventQueue
 {
 public:
+	/** 
+	 * Adds a new event to the queue 
+	 * Event = Event type 
+	 * Args = arguments for the consttructor of the given type.
+	 */
+
 	template<class Event, class ... Args>
 	void ReceiveEvent(Args&& ...args) {
 		const std::lock_guard<std::mutex> lock(mMutex);
 		mQueue.push(Event(std::forward<Args>(args)...));
 	}
 
-
+	/**
+	 * Returns the first event on the queue. If there is non returnt none. 
+	 */
 	std::optional<T> DispatchEvent()
 	{
 		const std::lock_guard<std::mutex> lock(mMutex);
