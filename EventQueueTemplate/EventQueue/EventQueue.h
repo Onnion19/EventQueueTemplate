@@ -26,7 +26,7 @@ public:
 		if (mQueue.empty())
 			return std::nullopt;
 
-		auto currentEvent = mQueue.front();
+		auto currentEvent = std::move(mQueue.front());
 		mQueue.pop();
 		return std::make_optional<T>(currentEvent);
 	}
